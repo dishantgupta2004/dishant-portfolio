@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Calendar, Clock, ArrowRight, Tag, BookOpen } from 'lucide-react'
+import { Calendar, ArrowRight, Tag, BookOpen } from 'lucide-react'
 import { api, BlogPost } from '@/lib/api'
 import { formatDate, cn } from '@/lib/utils'
 
@@ -29,9 +29,9 @@ function BlogCard({ post, index, featured = false }: BlogCardProps) {
           'relative bg-gradient-to-br from-primary-500/20 via-secondary-500/10 to-primary-500/20',
           featured ? 'min-h-[250px]' : 'h-[200px]'
         )}>
-          {post.cover_image ? (
+          {post.featured_image ? (
             <Image
-              src={post.cover_image}
+              src={post.featured_image}
               alt={post.title}
               fill
               className="object-cover transition-transform duration-500 group-hover:scale-105"
@@ -52,14 +52,8 @@ function BlogCard({ post, index, featured = false }: BlogCardProps) {
           <div className="flex flex-wrap gap-4 mb-3 text-sm text-dark-400">
             <span className="flex items-center gap-1.5">
               <Calendar className="w-4 h-4 text-primary-400" />
-              {formatDate(post.published_at || post.created_at)}
+              {formatDate(post.date)}
             </span>
-            {post.reading_time && (
-              <span className="flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-primary-400" />
-                {post.reading_time} min read
-              </span>
-            )}
           </div>
 
           {/* Title */}
@@ -146,7 +140,6 @@ export function BlogContent() {
         setTotalPages(data.pages || 1)
       } catch (err) {
         console.error('Failed to load blog posts:', err)
-        // Show empty state
         setPosts([])
         setTotalPages(1)
       } finally {

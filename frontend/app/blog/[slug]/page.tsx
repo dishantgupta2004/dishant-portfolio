@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Calendar, Clock, ArrowLeft, Tag, Share2, Linkedin, Github } from 'lucide-react'
+import { Calendar, ArrowLeft, Tag, Share2, Linkedin, Github } from 'lucide-react'
 import { api, BlogPost } from '@/lib/api'
 import { formatDate } from '@/lib/utils'
 
@@ -129,14 +129,8 @@ export default function BlogPostPage() {
             >
               <span className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-primary-400" />
-                {formatDate(post.published_at || post.created_at)}
+                {formatDate(post.date)}
               </span>
-              {post.reading_time && (
-                <span className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-primary-400" />
-                  {post.reading_time} min read
-                </span>
-              )}
             </motion.div>
 
             {/* Tags */}
@@ -163,7 +157,7 @@ export default function BlogPostPage() {
       </section>
 
       {/* Cover Image */}
-      {post.cover_image && (
+      {post.featured_image && (
         <div className="container mx-auto px-6 -mt-4 mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -172,7 +166,7 @@ export default function BlogPostPage() {
             className="relative aspect-video max-w-4xl mx-auto rounded-xl overflow-hidden"
           >
             <Image
-              src={post.cover_image}
+              src={post.featured_image}
               alt={post.title}
               fill
               className="object-cover"
