@@ -14,13 +14,13 @@ class Config:
     
     # PostgreSQL Database Configuration
     # Supports Vercel Postgres, Supabase, or any PostgreSQL instance
-    DATABASE_URL = os.getenv('DATABASE_URL', '')
+    DATABASE_URL = os.getenv('DATABASE_URL')
     
     # Handle Vercel Postgres URL format (postgres:// -> postgresql://)
-    if DATABASE_URL.startswith('postgres://'):
-        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+    #if DATABASE_URL.startswith('postgres://'):
+    #    DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
     
-    SQLALCHEMY_DATABASE_URI = DATABASE_URL or 'postgresql://localhost/portfolio_db'
+    SQLALCHEMY_DATABASE_URI = DATABASE_URL 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_recycle': 280,

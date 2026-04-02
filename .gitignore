@@ -83,7 +83,8 @@ api/__pycache__/
 
 # Ignore local seed/generated files if sensitive (optional)
 # api/seed.py
-
+frontend/.agents
+frontend/skills-lock.json
 # Ignore editor settings
 .vscode/*
 !.vscode/extensions.json
