@@ -84,7 +84,7 @@ export function AboutContent() {
               
               <p className="text-dark-300 leading-relaxed mb-4">
                 I am a computational physics researcher specializing in Physics-Informed Neural Networks (PINNs), 
-                Machine Learning, and Semiconductor Research. With a passion for combining AI with physics principles, 
+                Machine Learning, and MetaOptics. With a passion for combining AI with physics principles, 
                 I develop innovative solutions for complex scientific problems.
               </p>
               
