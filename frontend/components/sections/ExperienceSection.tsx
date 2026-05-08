@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { MapPin, Calendar, ExternalLink, Briefcase, GraduationCap, FlaskConical, Users } from 'lucide-react'
 import { api, Experience } from '@/lib/api'
 import { formatDateRange, cn } from '@/lib/utils'
+import { STATIC_EXPERIENCES } from '@/lib/static-data'
 
 const categoryIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   work: Briefcase,
@@ -126,47 +127,34 @@ function ExperienceCard({ experience, index }: ExperienceCardProps) {
   )
 }
 
-function ExperienceSkeleton() {
-  return (
-    <div className="timeline-item animate-pulse">
-      <div className="ml-6 card p-6">
-        <div className="h-6 bg-dark-700 rounded w-2/3 mb-3" />
-        <div className="h-4 bg-dark-700 rounded w-1/3 mb-4" />
-        <div className="flex gap-4 mb-4">
-          <div className="h-4 bg-dark-700 rounded w-24" />
-          <div className="h-4 bg-dark-700 rounded w-32" />
-        </div>
-        <div className="space-y-2">
-          <div className="h-3 bg-dark-700 rounded w-full" />
-          <div className="h-3 bg-dark-700 rounded w-5/6" />
-          <div className="h-3 bg-dark-700 rounded w-4/6" />
-        </div>
-      </div>
-    </div>
-  )
+interface ExperienceSectionProps {
+  initialExperiences?: Experience[]
 }
 
-export function ExperienceSection() {
-  const [experiences, setExperiences] = useState<Experience[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+export function ExperienceSection({ initialExperiences }: ExperienceSectionProps = {}) {
+  // Start with whatever we got from props (server-rendered) OR static data.
+  // Either way, the section paints content immediately — no skeleton flash.
+  const [experiences, setExperiences] = useState<Experience[]>(
+    initialExperiences ?? STATIC_EXPERIENCES
+  )
 
+  // Only refresh from API client-side when no initial data was provided
+  // (i.e. when this section is rendered inside a non-server-fetched page like home).
   useEffect(() => {
-    async function fetchExperiences() {
-      try {
-        const data = await api.getExperiences()
-        setExperiences(data || [])
-      } catch (err) {
-        setError('Failed to load experiences')
-        console.error(err)
-        setExperiences([])
-      } finally {
-        setIsLoading(false)
-      }
+    if (initialExperiences) return // server already gave us fresh data
+    let cancelled = false
+    api
+      .getExperiences()
+      .then((data) => {
+        if (!cancelled && data?.length) setExperiences(data)
+      })
+      .catch(() => {
+        // keep static fallback on error
+      })
+    return () => {
+      cancelled = true
     }
-
-    fetchExperiences()
-  }, [])
+  }, [initialExperiences])
 
   return (
     <section className="section bg-dark-900/50">
@@ -190,31 +178,13 @@ export function ExperienceSection() {
             <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-gradient-to-b from-primary-500 via-secondary-500 to-primary-500/20" />
             
             <div className="space-y-8">
-              {isLoading ? (
-                <>
-                  <ExperienceSkeleton />
-                  <ExperienceSkeleton />
-                  <ExperienceSkeleton />
-                </>
-              ) : error ? (
-                <div className="text-center py-12">
-                  <p className="text-red-400">{error}</p>
-                  <button
-                    onClick={() => window.location.reload()}
-                    className="mt-4 btn btn-secondary"
-                  >
-                    Retry
-                  </button>
-                </div>
-              ) : (
-                experiences.map((experience, index) => (
-                  <ExperienceCard 
-                    key={experience.id} 
-                    experience={experience} 
-                    index={index}
-                  />
-                ))
-              )}
+              {experiences.map((experience, index) => (
+                <ExperienceCard 
+                  key={experience.id} 
+                  experience={experience} 
+                  index={index}
+                />
+              ))}
             </div>
           </div>
         </div>

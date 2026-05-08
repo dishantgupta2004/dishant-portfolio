@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { FileText, ExternalLink, Mail, CheckCircle, Loader2, Brain, Atom, Cpu, Cloud } from 'lucide-react'
-import { api, Publication } from '@/lib/api'
+import { FileText, Mail, CheckCircle, Loader2, Brain, Atom, Cpu, Cloud } from 'lucide-react'
+import { Publication } from '@/lib/api'
 
 const statusColors: Record<string, { bg: string; text: string; label: string }> = {
   published: { bg: 'bg-secondary-500/20', text: 'text-secondary-400', label: 'Published' },
@@ -130,47 +129,12 @@ function PublicationCard({ publication, index }: { publication: Publication; ind
   )
 }
 
-function PublicationSkeleton() {
-  return (
-    <div className="card p-6 lg:p-8 border-l-4 border-dark-600 animate-pulse">
-      <div className="flex gap-3 mb-4">
-        <div className="h-6 bg-dark-700 rounded-full w-24" />
-        <div className="h-6 bg-dark-700 rounded-full w-28" />
-      </div>
-      <div className="h-7 bg-dark-700 rounded w-3/4 mb-4" />
-      <div className="h-4 bg-dark-700 rounded w-1/3 mb-4" />
-      <div className="space-y-2 mb-6">
-        <div className="h-4 bg-dark-700 rounded w-full" />
-        <div className="h-4 bg-dark-700 rounded w-5/6" />
-        <div className="h-4 bg-dark-700 rounded w-4/6" />
-      </div>
-      <div className="flex gap-3">
-        <div className="h-10 bg-dark-700 rounded-full w-32" />
-        <div className="h-10 bg-dark-700 rounded-full w-40" />
-      </div>
-    </div>
-  )
+interface PublicationsContentProps {
+  initialPublications: Publication[]
 }
 
-export function PublicationsContent() {
-  const [publications, setPublications] = useState<Publication[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    async function fetchPublications() {
-      try {
-        const data = await api.getPublications()
-        setPublications(data || [])
-      } catch (err) {
-        console.error('Failed to load publications:', err)
-        setPublications([])
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchPublications()
-  }, [])
+export function PublicationsContent({ initialPublications }: PublicationsContentProps) {
+  const publications = initialPublications
 
   return (
     <>
@@ -197,12 +161,7 @@ export function PublicationsContent() {
       <section className="section pt-0">
         <div className="container mx-auto px-6">
           <div className="space-y-8 max-w-4xl mx-auto">
-            {isLoading ? (
-              <>
-                <PublicationSkeleton />
-                <PublicationSkeleton />
-              </>
-            ) : publications.length > 0 ? (
+            {publications.length > 0 ? (
               publications.map((publication, index) => (
                 <PublicationCard key={publication.id} publication={publication} index={index} />
               ))

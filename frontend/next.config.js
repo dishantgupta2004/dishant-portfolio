@@ -10,18 +10,35 @@ const nextConfig = {
     ],
     unoptimized: true,
   },
-  // Rewrite API calls to Flask backend
+
+  // Rewrite /api/* to the Flask backend.
+  // - In dev:        proxy to localhost:5000
+  // - In production: only rewrite if NEXT_PUBLIC_API_URL is *not* an absolute URL
+  //                  (i.e. backend is colocated with frontend on the same Vercel project).
+  //                  If NEXT_PUBLIC_API_URL is absolute, the API client will hit it
+  //                  directly and we don't need a rewrite.
   async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: process.env.NODE_ENV === 'development' 
-          ? 'http://localhost:5000/api/:path*' 
-          : '/api/:path*',
-      },
-    ]
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL
+    const isAbsolute = apiUrl && /^https?:\/\//.test(apiUrl)
+
+    if (process.env.NODE_ENV === 'development') {
+      return [
+        {
+          source: '/api/:path*',
+          destination: 'http://localhost:5000/api/:path*',
+        },
+      ]
+    }
+
+    if (isAbsolute) {
+      // Frontend will call the absolute backend URL directly; no rewrite needed.
+      return []
+    }
+
+    // Default: assume backend is deployed under the same domain at /api/*
+    return []
   },
-  // Redirect old routes if needed
+
   async redirects() {
     return []
   },

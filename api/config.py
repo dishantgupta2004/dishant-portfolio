@@ -14,7 +14,7 @@ class Config:
     
     # PostgreSQL Database Configuration
     # Supports Vercel Postgres, Supabase, or any PostgreSQL instance
-    DATABASE_URL = os.getenv('DATABASE_URL')
+    DATABASE_URL = os.getenv('DATABASE_URL', "postgresql+psycopg2://myportfolio:Dishant_2015@localhost:5432/db_port")
     
     # Handle Vercel Postgres URL format (postgres:// -> postgresql://)
     #if DATABASE_URL.startswith('postgres://'):

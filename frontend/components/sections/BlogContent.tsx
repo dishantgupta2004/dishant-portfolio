@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -101,54 +101,37 @@ function BlogCard({ post, index, featured = false }: BlogCardProps) {
   )
 }
 
-function BlogSkeleton({ featured = false }: { featured?: boolean }) {
-  return (
-    <div className={cn('card overflow-hidden animate-pulse', featured && 'md:col-span-2')}>
-      <div className={cn('grid', featured && 'md:grid-cols-2')}>
-        <div className={cn('bg-dark-700', featured ? 'min-h-[250px]' : 'h-[200px]')} />
-        <div className="p-6">
-          <div className="flex gap-4 mb-3">
-            <div className="h-4 bg-dark-700 rounded w-24" />
-            <div className="h-4 bg-dark-700 rounded w-20" />
-          </div>
-          <div className="h-7 bg-dark-700 rounded w-3/4 mb-3" />
-          <div className="space-y-2 mb-4">
-            <div className="h-3 bg-dark-700 rounded w-full" />
-            <div className="h-3 bg-dark-700 rounded w-5/6" />
-          </div>
-          <div className="flex gap-2 mb-4">
-            <div className="h-6 bg-dark-700 rounded-full w-16" />
-            <div className="h-6 bg-dark-700 rounded-full w-20" />
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+interface BlogContentProps {
+  initialPosts: BlogPost[]
+  initialTotalPages: number
+  initialTotal: number
 }
 
-export function BlogContent() {
-  const [posts, setPosts] = useState<BlogPost[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+export function BlogContent({ initialPosts, initialTotalPages }: BlogContentProps) {
+  const [posts, setPosts] = useState<BlogPost[]>(initialPosts)
   const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
+  const [totalPages, setTotalPages] = useState(initialTotalPages)
+  const [isPaginating, setIsPaginating] = useState(false)
 
-  useEffect(() => {
-    async function fetchPosts() {
-      try {
-        const data = await api.getBlogPosts(currentPage, 10)
-        setPosts(data.posts || [])
-        setTotalPages(data.pages || 1)
-      } catch (err) {
-        console.error('Failed to load blog posts:', err)
-        setPosts([])
-        setTotalPages(1)
-      } finally {
-        setIsLoading(false)
+  // Only re-fetch when paginating beyond page 1
+  async function handlePageChange(page: number) {
+    if (page === currentPage) return
+    setIsPaginating(true)
+    try {
+      const data = await api.getBlogPosts(page, 10)
+      setPosts(data.posts || [])
+      setTotalPages(data.pages || 1)
+      setCurrentPage(page)
+      // Scroll to top of grid
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
       }
+    } catch (err) {
+      console.error('Failed to load blog posts:', err)
+    } finally {
+      setIsPaginating(false)
     }
-
-    fetchPosts()
-  }, [currentPage])
+  }
 
   return (
     <>
@@ -162,10 +145,10 @@ export function BlogContent() {
             className="text-center"
           >
             <h1 className="text-4xl md:text-5xl font-bold font-heading gradient-text mb-4">
-              Blog
+              Blog & Repositories
             </h1>
             <p className="text-dark-400 max-w-xl mx-auto">
-              Thoughts on Physics, AI, Research, and the intersection of Science and Technology
+              Thoughts on Physics, AI, Research, and walkthroughs of my open-source repositories
             </p>
           </motion.div>
         </div>
@@ -174,13 +157,7 @@ export function BlogContent() {
       {/* Posts */}
       <section className="section pt-0">
         <div className="container mx-auto px-6">
-          {isLoading ? (
-            <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-              <BlogSkeleton featured />
-              <BlogSkeleton />
-              <BlogSkeleton />
-            </div>
-          ) : !posts || posts.length === 0 ? (
+          {!posts || posts.length === 0 ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -203,7 +180,10 @@ export function BlogContent() {
             </motion.div>
           ) : (
             <>
-              <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+              <div className={cn(
+                'grid md:grid-cols-2 gap-8 max-w-5xl mx-auto transition-opacity',
+                isPaginating && 'opacity-50'
+              )}>
                 {posts.map((post, index) => (
                   <BlogCard
                     key={post.id}
@@ -220,9 +200,10 @@ export function BlogContent() {
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                     <button
                       key={page}
-                      onClick={() => setCurrentPage(page)}
+                      onClick={() => handlePageChange(page)}
+                      disabled={isPaginating}
                       className={cn(
-                        'w-10 h-10 rounded-lg font-medium transition-colors',
+                        'w-10 h-10 rounded-lg font-medium transition-colors disabled:opacity-50',
                         page === currentPage
                           ? 'bg-primary-500 text-white'
                           : 'bg-white/5 text-dark-300 hover:bg-white/10'

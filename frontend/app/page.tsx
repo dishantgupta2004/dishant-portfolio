@@ -5,17 +5,26 @@ import { FeaturedProjectSection } from '@/components/sections/FeaturedProjectSec
 import { SkillsSection } from '@/components/sections/SkillsSection'
 import { CoursesPreviewSection } from '@/components/sections/CoursesPreviewSection'
 import { AnnouncementBanner } from '@/components/sections/AnnouncementBanner'
+import { api } from '@/lib/api'
 
-export default function Home() {
+export const revalidate = 3600
+
+export default async function Home() {
+  // Prefetch on the server in parallel — these resolve fast thanks to ISR + static fallback.
+  const [experiences, skills] = await Promise.all([
+    api.getExperiences(),
+    api.getSkills(),
+  ])
+
   return (
     <>
       <HeroSection />
       <AnnouncementBanner />
       <HighlightsSection />
-      <ExperienceSection />
+      <ExperienceSection initialExperiences={experiences} />
       <FeaturedProjectSection />
       <CoursesPreviewSection />
-      <SkillsSection />
+      <SkillsSection initialSkills={skills} />
     </>
   )
 }

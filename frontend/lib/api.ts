@@ -1,9 +1,46 @@
 /**
  * API Client for Flask Backend
- * Handles all API requests to the portfolio backend
+ *
+ * Important performance notes:
+ * - On the server (Server Components), we fetch with `next: { revalidate: 3600 }`
+ *   so Vercel caches the response for 1 hour at the edge. This means after the
+ *   first request, the API is no longer in the critical render path.
+ * - Every method has a static fallback. If the API is cold or unreachable,
+ *   pages still render with bundled data instead of showing skeletons forever.
+ * - Set NEXT_PUBLIC_API_URL to an absolute URL (e.g. https://your-backend.vercel.app/api)
+ *   so server-side fetch works during build/SSR.
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+import {
+  STATIC_PROJECTS,
+  STATIC_PUBLICATIONS,
+  STATIC_EXPERIENCES,
+  STATIC_EDUCATION,
+  STATIC_SKILLS,
+  STATIC_COURSES,
+  STATIC_BLOG_POSTS,
+} from './static-data';
+
+// Resolve absolute base URL for server-side fetches.
+// Browser-side relative paths still work via the Next.js rewrite.
+function getBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    // Browser — relative URL handled by next.config.js rewrites
+    return process.env.NEXT_PUBLIC_API_URL || '/api';
+  }
+  // Server — must be absolute
+  if (process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.startsWith('http')) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  // Vercel deployment URL fallback
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}/api`;
+  }
+  // Local dev
+  return 'http://localhost:5000/api';
+}
+
+const API_BASE_URL = getBaseUrl();
 
 // ============== Types ==============
 
@@ -119,24 +156,6 @@ export interface ContactForm {
   message: string;
 }
 
-export interface Profile {
-  name: string;
-  title: string;
-  tagline: string;
-  email: string;
-  phone: string;
-  location: string;
-  bio: string;
-  social: {
-    github: string;
-    linkedin: string;
-    email: string;
-  };
-  experiences: Experience[];
-  education: Education[];
-  skills: SkillsGrouped;
-}
-
 export interface ApiResponse<T> {
   success: boolean;
   data: T;
@@ -153,63 +172,61 @@ export interface ApiResponse<T> {
 
 // ============== API Client ==============
 
-class ApiClient {
-  private baseUrl: string;
+interface FetchOptions extends RequestInit {
+  // Next.js-specific cache hints
+  next?: { revalidate?: number | false; tags?: string[] };
+}
 
-  constructor(baseUrl: string = API_BASE_URL) {
-    this.baseUrl = baseUrl;
-  }
+const DEFAULT_REVALIDATE = 3600; // 1 hour - cached at the edge on Vercel
+const FETCH_TIMEOUT_MS = 4000; // hard cap so we fall back to static data quickly
 
-  private async fetch<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<ApiResponse<T>> {
-    const url = `${this.baseUrl}${endpoint}`;
-    
-    const defaultHeaders: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
+async function safeFetch<T>(
+  endpoint: string,
+  options: FetchOptions = {}
+): Promise<ApiResponse<T> | null> {
+  const url = `${API_BASE_URL}${endpoint}`;
 
-    const config: RequestInit = {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(url, {
       ...options,
+      signal: controller.signal,
       headers: {
-        ...defaultHeaders,
+        'Content-Type': 'application/json',
         ...options.headers,
       },
-    };
+      // Default to ISR caching unless caller overrides
+      next: options.next ?? { revalidate: DEFAULT_REVALIDATE },
+    });
 
-    try {
-      const response = await fetch(url, config);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+    clearTimeout(timeout);
 
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error(`API Error for ${endpoint}:`, error);
-      throw error;
+    if (!response.ok) {
+      return null;
     }
+
+    return (await response.json()) as ApiResponse<T>;
+  } catch (error) {
+    clearTimeout(timeout);
+    // Silent fail — caller falls back to static data
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`API fetch failed for ${endpoint}:`, error);
+    }
+    return null;
   }
+}
 
-  // ============== Public Methods ==============
-
-  // Health check
-  async health() {
-    return this.fetch<{ status: string; message: string; version: string }>('/');
-  }
-
+class ApiClient {
   // Experiences
   async getExperiences(category?: string): Promise<Experience[]> {
     const params = category ? `?category=${category}` : '';
-    const response = await this.fetch<Experience[]>(`/experiences${params}`);
-    return response.data;
-  }
-
-  async getExperience(id: number): Promise<Experience> {
-    const response = await this.fetch<Experience>(`/experiences/${id}`);
-    return response.data;
+    const response = await safeFetch<Experience[]>(`/experiences${params}`);
+    if (response?.success && response.data) return response.data;
+    return category
+      ? STATIC_EXPERIENCES.filter((e) => e.category === category)
+      : STATIC_EXPERIENCES;
   }
 
   // Projects
@@ -218,44 +235,60 @@ class ApiClient {
     if (options?.featured) params.set('featured', 'true');
     if (options?.category) params.set('category', options.category);
     const query = params.toString() ? `?${params.toString()}` : '';
-    
-    const response = await this.fetch<Project[]>(`/projects${query}`);
-    return response.data;
+
+    const response = await safeFetch<Project[]>(`/projects${query}`);
+    if (response?.success && response.data) return response.data;
+
+    let projects = STATIC_PROJECTS;
+    if (options?.featured) projects = projects.filter((p) => p.is_featured);
+    if (options?.category) projects = projects.filter((p) => p.category === options.category);
+    return projects;
   }
 
-  async getProject(slug: string): Promise<Project> {
-    const response = await this.fetch<Project>(`/projects/${slug}`);
-    return response.data;
+  async getProject(slug: string): Promise<Project | null> {
+    const response = await safeFetch<Project>(`/projects/${slug}`);
+    if (response?.success && response.data) return response.data;
+    return STATIC_PROJECTS.find((p) => p.slug === slug) ?? null;
   }
 
   // Publications
   async getPublications(status?: string): Promise<Publication[]> {
     const params = status ? `?status=${status}` : '';
-    const response = await this.fetch<Publication[]>(`/publications${params}`);
-    return response.data;
+    const response = await safeFetch<Publication[]>(`/publications${params}`);
+    if (response?.success && response.data) return response.data;
+    return status
+      ? STATIC_PUBLICATIONS.filter((p) => p.status === status)
+      : STATIC_PUBLICATIONS;
   }
 
   // Courses
   async getCourses(featured?: boolean): Promise<Course[]> {
     const params = featured ? '?featured=true' : '';
-    const response = await this.fetch<Course[]>(`/courses${params}`);
-    return response.data;
+    const response = await safeFetch<Course[]>(`/courses${params}`);
+    if (response?.success && response.data) return response.data;
+    return featured ? STATIC_COURSES.filter((c) => c.is_featured) : STATIC_COURSES;
   }
 
   // Skills
   async getSkills(): Promise<SkillsGrouped> {
-    const response = await this.fetch<SkillsGrouped>('/skills');
-    return response.data;
+    const response = await safeFetch<SkillsGrouped>('/skills');
+    if (response?.success && response.data) return response.data;
+    return STATIC_SKILLS;
   }
 
   // Education
   async getEducation(): Promise<Education[]> {
-    const response = await this.fetch<Education[]>('/education');
-    return response.data;
+    const response = await safeFetch<Education[]>('/education');
+    if (response?.success && response.data) return response.data;
+    return STATIC_EDUCATION;
   }
 
   // Blog
-  async getBlogPosts(page: number = 1, per_page: number = 10, category?: string): Promise<{
+  async getBlogPosts(
+    page: number = 1,
+    per_page: number = 10,
+    category?: string
+  ): Promise<{
     posts: BlogPost[];
     pages: number;
     total: number;
@@ -266,40 +299,59 @@ class ApiClient {
     params.set('per_page', per_page.toString());
     if (category) params.set('category', category);
     const query = `?${params.toString()}`;
-    
-    const response = await this.fetch<BlogPost[]>(`/blog${query}`);
-    
+
+    const response = await safeFetch<BlogPost[]>(`/blog${query}`);
+
+    if (response?.success && response.data) {
+      return {
+        posts: response.data,
+        pages: response.pagination?.pages ?? 1,
+        total: response.pagination?.total ?? response.data.length,
+        current_page: response.pagination?.page ?? 1,
+      };
+    }
+
+    // Fallback to static blog posts
+    let posts = STATIC_BLOG_POSTS;
+    if (category) posts = posts.filter((p) => p.category === category);
+    const total = posts.length;
+    const start = (page - 1) * per_page;
+    const paged = posts.slice(start, start + per_page);
     return {
-      posts: response.data || [],
-      pages: response.pagination?.pages || 1,
-      total: response.pagination?.total || 0,
-      current_page: response.pagination?.page || 1,
+      posts: paged,
+      pages: Math.max(1, Math.ceil(total / per_page)),
+      total,
+      current_page: page,
     };
   }
 
-  async getBlogPost(slug: string): Promise<BlogPost> {
-    const response = await this.fetch<BlogPost>(`/blog/${slug}`);
-    return response.data;
+  async getBlogPost(slug: string): Promise<BlogPost | null> {
+    const response = await safeFetch<BlogPost>(`/blog/${slug}`);
+    if (response?.success && response.data) return response.data;
+    return STATIC_BLOG_POSTS.find((p) => p.slug === slug) ?? null;
   }
 
-  // Profile
-  async getProfile(): Promise<Profile> {
-    const response = await this.fetch<Profile>('/profile');
-    return response.data;
-  }
-
-  // Contact
+  // Contact — never cached, no fallback (POST)
   async submitContact(data: ContactForm): Promise<{ success: boolean; message: string }> {
-    const response = await this.fetch<{ message: string }>('/contact', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-    return { success: response.success, message: response.data?.message || '' };
+    try {
+      const url = `${API_BASE_URL}/contact`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+        cache: 'no-store',
+      });
+      const json = await response.json();
+      return {
+        success: !!json.success,
+        message: json.message ?? json.data?.message ?? '',
+      };
+    } catch (err) {
+      return { success: false, message: 'Failed to send message. Please try again.' };
+    }
   }
 }
 
 // Export singleton instance
 export const api = new ApiClient();
-
-// Export class for testing or custom instances
 export { ApiClient };

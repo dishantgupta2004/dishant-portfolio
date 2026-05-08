@@ -1,10 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import Link from 'next/link'
 import { Github, ExternalLink, Calendar, CheckCircle } from 'lucide-react'
-import { api, Project } from '@/lib/api'
+import { Project } from '@/lib/api'
 import { formatDateRange } from '@/lib/utils'
 
 function ProjectCard({ project, index }: { project: Project; index: number }) {
@@ -129,53 +127,19 @@ function ProjectCard({ project, index }: { project: Project; index: number }) {
   )
 }
 
-function ProjectSkeleton() {
-  return (
-    <div className="card overflow-hidden animate-pulse">
-      <div className="grid lg:grid-cols-5">
-        <div className="lg:col-span-2 min-h-[200px] lg:min-h-[300px] bg-dark-700" />
-        <div className="lg:col-span-3 p-6 lg:p-8">
-          <div className="h-4 bg-dark-700 rounded w-1/4 mb-4" />
-          <div className="h-6 bg-dark-700 rounded w-3/4 mb-4" />
-          <div className="space-y-2 mb-4">
-            <div className="h-4 bg-dark-700 rounded w-full" />
-            <div className="h-4 bg-dark-700 rounded w-5/6" />
-          </div>
-          <div className="flex gap-2">
-            <div className="h-8 bg-dark-700 rounded w-20" />
-            <div className="h-8 bg-dark-700 rounded w-20" />
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // Tech cloud data
 const technologies = [
   'Python', 'TensorFlow', 'PyTorch', 'DeepXDE', 'NumPy', 'SciPy',
   'Pandas', 'OpenFOAM', 'MATLAB', 'C++', 'Flask', 'PostgreSQL'
 ]
 
-export function ProjectsContent() {
-  const [projects, setProjects] = useState<Project[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+interface ProjectsContentProps {
+  initialProjects: Project[]
+}
 
-  useEffect(() => {
-    async function fetchProjects() {
-      try {
-        const data = await api.getProjects()
-        setProjects(data || [])
-      } catch (err) {
-        console.error('Failed to load projects:', err)
-        setProjects([])
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchProjects()
-  }, [])
+export function ProjectsContent({ initialProjects }: ProjectsContentProps) {
+  // Server-rendered data — no loading state, no useEffect waterfall.
+  const projects = initialProjects
 
   return (
     <>
@@ -202,13 +166,7 @@ export function ProjectsContent() {
       <section className="section pt-0">
         <div className="container mx-auto px-6">
           <div className="space-y-8 max-w-5xl mx-auto">
-            {isLoading ? (
-              <>
-                <ProjectSkeleton />
-                <ProjectSkeleton />
-                <ProjectSkeleton />
-              </>
-            ) : projects.length > 0 ? (
+            {projects.length > 0 ? (
               projects.map((project, index) => (
                 <ProjectCard key={project.id} project={project} index={index} />
               ))

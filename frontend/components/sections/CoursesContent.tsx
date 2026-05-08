@@ -1,10 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { ExternalLink, GraduationCap, Clock, Signal, CheckCircle, Users, Award, Smartphone, Mail } from 'lucide-react'
 import Link from 'next/link'
-import { api, Course } from '@/lib/api'
+import { Course } from '@/lib/api'
 
 interface CourseCardProps {
   course: Course
@@ -110,27 +109,6 @@ function CourseCard({ course, index }: CourseCardProps) {
   )
 }
 
-function CourseSkeleton() {
-  return (
-    <div className="card overflow-hidden animate-pulse">
-      <div className="h-48 bg-dark-700" />
-      <div className="p-6">
-        <div className="flex gap-4 mb-4">
-          <div className="h-4 bg-dark-700 rounded w-20" />
-          <div className="h-4 bg-dark-700 rounded w-24" />
-        </div>
-        <div className="h-6 bg-dark-700 rounded w-3/4 mb-3" />
-        <div className="h-4 bg-dark-700 rounded w-full mb-2" />
-        <div className="h-4 bg-dark-700 rounded w-5/6 mb-6" />
-        <div className="space-y-2 mb-6">
-          <div className="h-3 bg-dark-700 rounded w-2/3" />
-          <div className="h-3 bg-dark-700 rounded w-1/2" />
-        </div>
-      </div>
-    </div>
-  )
-}
-
 const benefits = [
   {
     icon: Users,
@@ -149,55 +127,12 @@ const benefits = [
   },
 ]
 
-export function CoursesContent() {
-  const [courses, setCourses] = useState<Course[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+interface CoursesContentProps {
+  initialCourses: Course[]
+}
 
-  useEffect(() => {
-    async function fetchCourses() {
-      try {
-        const data = await api.getCourses()
-        setCourses(data)
-      } catch (err) {
-        console.error('Failed to load courses:', err)
-        // Fallback to static data
-        setCourses([
-          {
-            id: 1,
-            title: 'Python Programming',
-            short_description: 'Complete Python programming course from basics to advanced concepts with hands-on projects.',
-            url: 'https://classplusapp.com/w/unisole-empower/courses/751561',
-            price: 'Contact for pricing',
-            duration: 'Self-paced',
-            level: 'Beginner to Advanced',
-            features: ['Complete Python fundamentals', 'Object-Oriented Programming', 'Data structures & algorithms', 'Real-world projects', 'Certificate of completion'],
-            is_featured: true,
-            order: 1,
-            description: null,
-            image: null
-          },
-          {
-            id: 2,
-            title: 'Full Stack Data Science Pro',
-            short_description: 'Comprehensive Data Science course covering ML, DL, NLP, Computer Vision, and industry deployment practices.',
-            url: 'https://classplusapp.com/w/unisole-empower/courses/723989',
-            price: 'Contact for pricing',
-            duration: 'Self-paced',
-            level: 'Intermediate to Advanced',
-            features: ['Machine Learning fundamentals', 'Deep Learning with TensorFlow/PyTorch', 'Natural Language Processing', 'Computer Vision projects', 'MLOps and deployment', 'Placement assistance'],
-            is_featured: true,
-            order: 2,
-            description: null,
-            image: null
-          }
-        ])
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchCourses()
-  }, [])
+export function CoursesContent({ initialCourses }: CoursesContentProps) {
+  const courses = initialCourses
 
   return (
     <>
@@ -240,7 +175,7 @@ export function CoursesContent() {
               </p>
               <div className="flex flex-wrap gap-8 mt-4 justify-center md:justify-start">
                 <div className="text-center">
-                  <span className="block text-2xl font-bold text-primary-400">100+</span>
+                  <span className="block text-2xl font-bold text-primary-400">2000+</span>
                   <span className="text-dark-500 text-sm">Students</span>
                 </div>
                 <div className="text-center">
@@ -270,16 +205,9 @@ export function CoursesContent() {
           </motion.h2>
 
           <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-            {isLoading ? (
-              <>
-                <CourseSkeleton />
-                <CourseSkeleton />
-              </>
-            ) : (
-              courses.map((course, index) => (
-                <CourseCard key={course.id} course={course} index={index} />
-              ))
-            )}
+            {courses.map((course, index) => (
+              <CourseCard key={course.id} course={course} index={index} />
+            ))}
           </div>
         </div>
       </section>
